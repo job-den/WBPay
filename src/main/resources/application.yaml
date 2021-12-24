@@ -3,8 +3,8 @@ server:
 
 spring:
   datasource:
-    driver-class-name: oracle.jdbc.OracleDriver
-    url: jdbc:oracle:thin:@cloud.ru:1521:BASE
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    url: jdbc:sqlserver://PCHUPIN-NOTE:1433;databaseName=diasoft
     username: username
     password: password
     hikari:
