@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="https://thymeleaf.org">
+<head>
+    <title>Количество записей</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+<body>
+<p th:text="'Количество  строк из БД = ' + ${rowCount}" />
+<p th:text="'Количество записей в БД = ' + ${selectCount}" />
+</body>
+</html>
