@@ -1,0 +1,18 @@
+server:
+  port: 8285
+
+spring:
+  datasource:
+    driver-class-name: oracle.jdbc.OracleDriver
+    url: jdbc:oracle:thin:@cloud.ru:1521:BASE
+    username: username
+    password: password
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 2000
+      max-lifetime: 10000
+      leak-detection-threshold: 2000
+
+file_path:
+  "C://Temp/"
