@@ -1,30 +1,39 @@
 package application;
 
-import entity.PayOrder;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
-import service.PayService;
-
-import java.io.IOException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class PayController {
 
-    @GetMapping("/test")
-    public String pay(@RequestParam(name="name", required=false, defaultValue="World") String name, Model model) throws IOException {
-        model.addAttribute("name", name);
-        return "test";
+    @Autowired
+    PayService service;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    @PostMapping(value = "/payToFile")
+    public ResponseEntity<?> payToFile(@RequestBody PayOrder payOrder) {
+        service.payToFile(payOrder);
+        return new ResponseEntity<>(HttpStatus.CREATED);
     }
 
-    @PostMapping(value = "/payOrder")
-    public ResponseEntity<?> create(@RequestBody PayOrder payOrder) {
-        PayService.pay(payOrder);
+    @PostMapping(value = "/payToBase")
+    public ResponseEntity<?> payToBase(@RequestBody PayOrder payOrder) {
+        service.payToBase(payOrder);
         return new ResponseEntity<>(HttpStatus.CREATED);
+    }
+
+    @GetMapping(value = "/payToBaseStub")
+    public String payToBaseStub() {
+        service.payToBaseStub();
+        return "pay OK";
     }
 
 }
