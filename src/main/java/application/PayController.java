@@ -30,6 +30,12 @@ public class PayController {
         return new ResponseEntity<>(HttpStatus.CREATED);
     }
 
+    @PostMapping(value = "/manyPayToBase")
+    public ResponseEntity<?> manyPayToBase(@RequestBody PayOrder[] payOrders) {
+        service.manyPayToBase(payOrders);
+        return new ResponseEntity<>(HttpStatus.CREATED);
+    }
+
     @GetMapping(value = "/payToBaseStub")
     public String payToBaseStub() {
         service.payToBaseStub();
