@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="https://thymeleaf.org">
+<head>
+    <title>Количество записей</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+<body>
+    <div th:each="po : ${formList}">
+        <p th:text="'Номер документа = ' + ${po:documentNumber}" />
+        <p th:text="'Идентификатор документа = ' + ${po:id}" />
+        <p th:text="'Дата документа = ' + ${po:inDateTime}" />
+    </div>
+</body>
+</html>
+

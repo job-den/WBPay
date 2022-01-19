@@ -1,5 +1,7 @@
 package application;
 
+import java.time.LocalDateTime;
+
 public class PayOrder {
 /*
     {
@@ -28,6 +30,9 @@ public class PayOrder {
     }
 */
 
+
+private String id;
+private LocalDateTime InDateTime;
 private String documentNumber;
 private String date;
 private String amount;
@@ -226,4 +231,21 @@ private String recipientCorrAccountNumber;
     public void setRecipientCorrAccountNumber(String recipientCorrAccountNumber) {
         this.recipientCorrAccountNumber = recipientCorrAccountNumber;
     }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public LocalDateTime getInDateTime() {
+        return InDateTime;
+    }
+
+    public void setInDateTime(LocalDateTime inDateTime) {
+        InDateTime = inDateTime;
+    }
+
 }

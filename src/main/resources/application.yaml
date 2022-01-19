@@ -3,8 +3,9 @@ server:
 
 spring:
   datasource:
-    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-    url: jdbc:sqlserver://PCHUPIN-NOTE:1433;databaseName=diasoft
+    driver-class-name: org.h2.Driver
+    //url: jdbc:h2:C:\Temp\H2\test.mv;MV_STORE=true;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+    url: jdbc:h2:mem:inm;MV_STORE=true;DB_CLOSE_DELAY=-1;CASE_INSENSITIVE_IDENTIFIERS=TRUE
     username: username
     password: password
     hikari:
