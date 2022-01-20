@@ -6,10 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementSetter;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -53,7 +50,7 @@ public class PayController {
     }
 
     @GetMapping(value ="/payState")
-    public String payState(Model model) throws Exception {
+    public String payState(@RequestParam(name="id") String requestID, Model model) throws Exception {
         try {
             /*
             return jdbcTemplate.queryForList("select p.RequestID as RequestID\n" +
@@ -74,7 +71,7 @@ public class PayController {
             PreparedStatementSetter preparedStatement = new PreparedStatementSetter() {
                 @Override
                 public void setValues(PreparedStatement ps) throws SQLException {
-                    ps.setString(1, "SPID1");
+                    ps.setString(1, requestID);
                 }
             };
 
