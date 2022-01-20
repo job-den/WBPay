@@ -1,11 +1,16 @@
 package application;
 
+import org.json.simple.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementSetter;
+import org.springframework.lang.Nullable;
 import org.springframework.ui.Model;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 
 import java.sql.PreparedStatement;
@@ -49,8 +54,9 @@ public class PayController {
         return "pay OK";
     }
 
-    @GetMapping(value ="/payState")
-    public String payState(@RequestParam(name="id") String requestID, Model model) throws Exception {
+    @RequestMapping(value ="/payState",produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity payState(@RequestParam(name="id") String requestID) throws Exception {
+        List formList = new ArrayList();
         try {
             /*
             return jdbcTemplate.queryForList("select p.RequestID as RequestID\n" +
@@ -78,8 +84,6 @@ public class PayController {
             List<Map<String, Object>> queryList = jdbcTemplate.queryForList("select id,documentNumber,inDateTime " +
                     "from dtr_sys_pwb_payment d where SPID =?", preparedStatement);
 
-
-            List formList = new ArrayList();
             for (Map row : queryList) {
                 PayOrder order = new PayOrder();
                 order.setDocumentNumber((String) row.get("documentNumber"));
@@ -88,12 +92,25 @@ public class PayController {
                 order.setInDateTime(((Timestamp) row.get("inDateTime")).toLocalDateTime());
                 formList.add(order);
             }
-            model.addAttribute("formList",formList);
         } catch (Exception e) {
-            throw e;
+            ResponseEntity<Object> responseEntity = new ResponseEntity<>(formList,HttpStatus.METHOD_FAILURE);
+            return  responseEntity;
         }
 
-        return "baseForm";
+/*
+        PayOrder order1 = new PayOrder();
+        order1.setDocumentNumber("1");
+        order1.setId("id1");
+        formList.add(order1);
+
+        PayOrder order2 = new PayOrder();
+        order2.setDocumentNumber("2");
+        order2.setId("id2");
+        formList.add(order2);
+*/
+
+        ResponseEntity<Object> responseEntity = new ResponseEntity<>(formList,HttpStatus.OK);
+        return  responseEntity;
     }
 
     public List<Object> extractData(ResultSet resultSet) throws SQLException {
