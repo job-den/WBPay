@@ -8,11 +8,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementSetter;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -42,6 +43,40 @@ public class PayController {
         service.manyPayToBase(payOrders);
         return new ResponseEntity<>(HttpStatus.CREATED);
     }
+    @PostMapping(value = "/newPaysToBase",produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> newPaysToBase(@RequestBody Map<String, Object> filterMap) {
+        String batchId = (filterMap).get("batchId").toString();
+        Map from = (Map) (filterMap).get("from");
+
+        String senderAccount = from.get("senderAccount").toString();
+      /*  String bic = from.get("BIC").toString();*/
+
+        List <Map<String,String>> toObject = (List<Map<String,String>>) filterMap.get("to");
+
+        List <Recipient> recipients = new ArrayList<>();
+        Iterator<Map<String, String>> toObjectLine = toObject.iterator();
+
+        while (toObjectLine.hasNext()) {
+            Map<String, String> to = toObjectLine.next();
+            Recipient recipient = new Recipient();
+            recipient.setPaymentId(to.get("paymentId"));
+            recipient.setDocAmount(String.valueOf(to.get("docAmount")));
+            recipient.setDocNumber(to.get("docNumber"));
+            recipient.setRecipientBankName(to.get("recipientBankName"));
+            recipient.setRecipientKpp(to.get("recipientKpp"));
+            recipient.setRecipientBankBik(to.get("recipientBankBik"));
+            recipient.setRecipientCorrespondentAccount(to.get("recipientCorrespondentAccount"));
+            recipient.setRecipientName(to.get("recipientName"));
+            recipient.setRecipientAccount(to.get("recipientAccount"));
+            recipient.setRecipientInn(to.get("recipientInn"));
+            recipient.setPaymentDescription(to.get("paymentDescription"));
+            recipient.setExecutionOrder(String.valueOf(to.get("executionOrder")));
+         recipients.add(recipient);
+        }
+
+        //service.newPaysToBase(recipients,payBatch,payer);
+        return new ResponseEntity<>(HttpStatus.CREATED);
+    }
 
     @GetMapping(value = "/payToBaseStub")
     public String payToBaseStub() {
@@ -51,10 +86,68 @@ public class PayController {
 
     @RequestMapping(value ="/payState",produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity payState(@RequestParam(name="id") String requestID) throws Exception {
-        List formList = new ArrayList();
+        List resultList = new ArrayList();
         try {
-            /*
-            return jdbcTemplate.queryForList("select p.RequestID as RequestID\n" +
+
+            PreparedStatementSetter preparedStatement = new PreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps) throws SQLException {
+                    ps.setString(0, requestID);
+                }
+            };
+           // System.out.println("ID="+"["+requestID+"]") ;
+            List<Map<String, Object>> queryList = jdbcTemplate.queryForList("select p.RequestID as RequestID" +
+                    "      ,p.documentNumber as documentNumber" +
+                    "      ,dt.Qty as Qty" +
+                    "      ,dt.Confirmed as Confirmed" +
+                    "      ,dt.DealTransactID as DealTransactID" +
+                    "      ,case when Confirmed = 101 then 'Загружен'" +
+                    "            when Confirmed = 1   then 'Исполнен'" +
+                    "       else 'Обрабатывается'" +
+                    "       end PayStatus  " +
+                    "  ,isnull(p.Error,'') as Error " +
+                    " from WB_Payment p " +
+                    " left join tDealTransact dt on dt.DealTransactID = p.DealTransactID" +
+                    " where p.RequestId = ?", requestID.toString());  //4eeb8b89-8fa2-4b85-b50a-2adc0736beed
+
+           // List resultList = new ArrayList();
+            for (Map row : queryList) {
+
+                PayOrdState ordState = new PayOrdState();
+                ordState.setRequestID((String) row.get("RequestID"));
+                ordState.setDocumentNumber((String) row.get("documentNumber").toString());
+                ordState.setAmount((BigDecimal) row.get("Qty"));
+                ordState.setConfirmed((String) row.get("Confirmed").toString());
+                ordState.setDealTransactID((BigDecimal) row.get("DealTransactID"));
+                ordState.setPayStatus((String) row.get("PayStatus"));
+                ordState.setError((String) row.get("Error"));
+
+                resultList.add(ordState);
+        }
+
+        } catch (Exception e) {
+             throw e;
+          //  ResponseEntity<Object> responseEntity = new ResponseEntity<>(resultList,HttpStatus.METHOD_FAILURE);
+          //  return  responseEntity;
+        }
+
+        ResponseEntity<Object> responseEntity = new ResponseEntity<>(resultList,HttpStatus.OK);
+        return  responseEntity;
+    }
+
+
+    @RequestMapping(value ="/PayStateTest",produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity payStateTest(@RequestParam(name="id") String requestID) throws Exception {
+           List<Object> resultList = new ArrayList();
+        try {
+
+            PreparedStatementSetter preparedStatement = new PreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps) throws SQLException {
+                    ps.setString(0, requestID);
+                }
+            };
+            List<Map<String, Object>> queryList = jdbcTemplate.queryForList("select p.RequestID as RequestID\n" +
                     "      ,p.documentNumber as documentNumber\n" +
                     "      ,dt.Qty as Qty\n" +
                     "      ,dt.Confirmed as Confirmed\n" +
@@ -66,48 +159,36 @@ public class PayController {
                     "\t  ,p.Error as Error\n" +
                     " from WB_Payment p\n" +
                     "left join tDealTransact dt on dt.DealTransactID = p.DealTransactID\n" +
-                    " where p.RequestId = '8f6633d7-3d6c-48cf-8327-4379a92b45a2'");
-                    */
+                    " where p.RequestId = '?'", requestID);
 
-            PreparedStatementSetter preparedStatement = new PreparedStatementSetter() {
-                @Override
-                public void setValues(PreparedStatement ps) throws SQLException {
-                    ps.setString(1, requestID);
-                }
-            };
 
-            List<Map<String, Object>> queryList = jdbcTemplate.queryForList("select id,documentNumber,inDateTime " +
-                    "from dtr_sys_pwb_payment d where SPID =?", preparedStatement);
-
-            for (Map row : queryList) {
-                PayOrder order = new PayOrder();
-                order.setDocumentNumber((String) row.get("documentNumber"));
-                order.setId((String) row.get("id"));
-                //order.setID(((Integer) row.get("ID")).longValue()); если будет число
-                order.setInDateTime(((Timestamp) row.get("inDateTime")).toLocalDateTime());
-                formList.add(order);
-            }
         } catch (Exception e) {
-            ResponseEntity<Object> responseEntity = new ResponseEntity<>(formList,HttpStatus.METHOD_FAILURE);
-            return  responseEntity;
+            throw e;
+
+        }
+        ResponseEntity<Object> responseEntity = new ResponseEntity<>(resultList,HttpStatus.OK);
+        return  responseEntity;
+    }
+        public List<Object> extractData (ResultSet resultSet) throws SQLException {
+
+            List<Object> resultList = null;
+            while (resultSet.next()) {
+                resultList = new ArrayList<Object>();
+
+                resultList.add(resultSet.getObject("RequestID"));
+                resultList.add(resultSet.getObject("documentNumber"));
+                resultList.add(resultSet.getObject("Qty"));
+                resultList.add(resultSet.getObject("Confirmed"));
+                resultList.add(resultSet.getObject("DealTransactID"));
+                resultList.add(resultSet.getObject("PayStatus"));
+                resultList.add(resultSet.getObject("Error"));
+            }
+
+            return resultList;
+
         }
 
 /*
-        PayOrder order1 = new PayOrder();
-        order1.setDocumentNumber("1");
-        order1.setId("id1");
-        formList.add(order1);
-
-        PayOrder order2 = new PayOrder();
-        order2.setDocumentNumber("2");
-        order2.setId("id2");
-        formList.add(order2);
-*/
-
-        ResponseEntity<Object> responseEntity = new ResponseEntity<>(formList,HttpStatus.OK);
-        return  responseEntity;
-    }
-
     public List<Object> extractData(ResultSet resultSet) throws SQLException {
 
         List<Object> resultList = null;
@@ -124,7 +205,5 @@ public class PayController {
         }
 
         return resultList;
-
-    }
-
- }
+*/
+}

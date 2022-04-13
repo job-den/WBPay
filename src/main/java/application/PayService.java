@@ -22,10 +22,10 @@ import java.util.UUID;
 public class PayService {
 
     private static final String INSERT_INTO_PWB_PAYMENT ="INSERT INTO dbo.pwb_payment ("+
-            "RequestId,INDATETIME,DOCUMENTNUMBER,\"date\",AMOUNT,RECIPIENTNAME,INN,KPP,BANKACNT,BANKBIK,ACCOUNTNUMBER,"+
+            "RequestId,INDATETIME,PAYMENTID,SENDERACCOUNT,DOCUMENTNUMBER,\"date\",AMOUNT,RECIPIENTNAME,INN,KPP,BANKACNT,BANKBIK,ACCOUNTNUMBER,"+
             "PAYMENTPURPOSE,EXECUTIONORDER,TAXPAYERSTATUS,KBK,OKTMO,TAXEVIDENCE,TAXPERIOD,UIN,TAXDOCNUMBER,"+
             "TAXDOCDATE,REVENUETYPECODE,COLLECTIONAMOUNTNUMBER,RECIPIENTCORRACCOUNTNUMBER) "+
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" ;
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)" ;
 
     private static final String INSERT_INTO_PWB_PAYMENT_SMAL ="INSERT INTO dbo.pwb_payment ("+
             "RequestId,INDATETIME,DOCUMENTNUMBER,\"date\",AMOUNT) "+
@@ -33,7 +33,6 @@ public class PayService {
 
     @Value("${file_path}")
     private String file_path;
-
 
     @Autowired
     JdbcTemplate jdbcTemplate;
@@ -95,6 +94,21 @@ public class PayService {
         });
     }
 
+    public void newPaysToBase(Recipient[] recipients, PayBatch payBatch, Payer payer) {
+        String uuid = payBatch.getBatchId();
+        String senderAccount = payer.getSenderAccount();
+        for(Recipient recipient: recipients){
+            newsaveToDB(recipient, uuid, senderAccount);
+        }
+        jdbcTemplate.update("exec dbo.WB_PaymentRequest @pRequestID = ?, @ReqName = ?", new PreparedStatementSetter() {
+            @Override
+            public void setValues(PreparedStatement ps) throws SQLException {
+                ps.setString(1, uuid);
+                ps.setString(2, "WB_pay");
+            }
+        });
+    }
+
     private void saveToDB(PayOrder payOrder, String uuid) {
         try {
             jdbcTemplate.update(INSERT_INTO_PWB_PAYMENT, new PreparedStatementSetter() {
@@ -102,28 +116,69 @@ public class PayService {
                 public void setValues(PreparedStatement ps) throws SQLException {
                     ps.setString(1, uuid); /*ps.setBigDecimal(2, new BigDecimal(UUID.randomUUID().toString()));*/
                     ps.setTimestamp (2, Timestamp.valueOf(LocalDateTime.now())); /*getTimeStamp(payOrder.getDate())); */
-                    ps.setString(3, payOrder.getDocumentNumber());
-                    ps.setString(4,payOrder.getDate());
-                    ps.setBigDecimal(5, new BigDecimal(payOrder.getAmount()));
-                    ps.setString(6,payOrder.getRecipientName());
-                    ps.setString(7,payOrder.getInn());
-                    ps.setString(8,payOrder.getKpp());
-                    ps.setString(9,payOrder.getBankAcnt());
-                    ps.setString(10,payOrder.getBankBik());
-                    ps.setString(11,payOrder.getAccountNumber());
-                    ps.setString(12,payOrder.getPaymentPurpose());
-                    ps.setString(13,payOrder.getExecutionOrder());
-                    ps.setString(14,payOrder.getTaxPayerStatus());
-                    ps.setString(15,payOrder.getKbk());
-                    ps.setString(16,payOrder.getOktmo());
-                    ps.setString(17,payOrder.getTaxEvidence());
-                    ps.setString(18,payOrder.getTaxPeriod());
-                    ps.setString(19,payOrder.getUin());
-                    ps.setString(20,payOrder.getTaxDocNumber());
-                    ps.setString(21,payOrder.getTaxDocDate());
-                    ps.setString(22,payOrder.getRevenueTypeCode());
-                    ps.setString(23,payOrder.getCollectionAmountNumber());
-                    ps.setString(24,payOrder.getRecipientCorrAccountNumber());
+                    ps.setString(3,"");
+                    ps.setString(4,"");
+                    ps.setString(5, payOrder.getDocumentNumber());
+                    ps.setString(6,payOrder.getDate());
+                    ps.setBigDecimal(7, new BigDecimal(payOrder.getAmount()));
+                    ps.setString(8,payOrder.getRecipientName());
+                    ps.setString(9,payOrder.getInn());
+                    ps.setString(10,payOrder.getKpp());
+                    ps.setString(11,payOrder.getBankAcnt());
+                    ps.setString(12,payOrder.getBankBik());
+                    ps.setString(13,payOrder.getAccountNumber());
+                    ps.setString(14,payOrder.getPaymentPurpose());
+                    ps.setString(15,payOrder.getExecutionOrder());
+                    ps.setString(16,payOrder.getTaxPayerStatus());
+                    ps.setString(17,payOrder.getKbk());
+                    ps.setString(18,payOrder.getOktmo());
+                    ps.setString(19,payOrder.getTaxEvidence());
+                    ps.setString(20,payOrder.getTaxPeriod());
+                    ps.setString(21,payOrder.getUin());
+                    ps.setString(22,payOrder.getTaxDocNumber());
+                    ps.setString(23,payOrder.getTaxDocDate());
+                    ps.setString(24,payOrder.getRevenueTypeCode());
+                    ps.setString(25,payOrder.getCollectionAmountNumber());
+                    ps.setString(26,payOrder.getRecipientCorrAccountNumber());
+                }
+            });
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void newsaveToDB(Recipient recipient, String uuid, String senderAccount) {
+        try {
+            jdbcTemplate.update(INSERT_INTO_PWB_PAYMENT, new PreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps) throws SQLException {
+                    ps.setString(1, uuid); /*ps.setBigDecimal(2, new BigDecimal(UUID.randomUUID().toString()));*/
+                    ps.setTimestamp (2, Timestamp.valueOf(LocalDateTime.now())); /*getTimeStamp(payOrder.getDate())); */
+                    ps.setString(3,recipient.getPaymentId());
+                    ps.setString(4,senderAccount);
+                    ps.setString(5, recipient.getDocNumber());
+                    ps.setString(6, Timestamp.valueOf(LocalDateTime.now()).toString());
+                    ps.setBigDecimal(7, new BigDecimal(recipient.getDocAmount()));
+                    ps.setString(8,recipient.getRecipientName());
+                    ps.setString(9,recipient.getRecipientInn());
+                    ps.setString(10,recipient.getRecipientKpp());
+                    ps.setString(11,recipient.getRecipientCorrespondentAccount());
+                    ps.setString(12,recipient.getRecipientBankBik());
+                    ps.setString(13,recipient.getRecipientAccount());
+                    ps.setString(14,recipient.getPaymentDescription());
+                    ps.setString(15,recipient.getExecutionOrder());
+                    ps.setString(16,"");
+                    ps.setString(17,"");
+                    ps.setString(18,"");
+                    ps.setString(19,"");
+                    ps.setString(20,"");
+                    ps.setString(21,"");
+                    ps.setString(22,"");
+                    ps.setString(23,"");
+                    ps.setString(24,"");
+                    ps.setString(25,"");
+                    ps.setString(26,recipient.getRecipientCorrespondentAccount());
                 }
             });
 
@@ -152,5 +207,4 @@ public class PayService {
             }
         });
     }
-
 }
