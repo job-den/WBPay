@@ -4,8 +4,8 @@ server:
 spring:
   datasource:
     driver-class-name: org.h2.Driver
-    //url: jdbc:h2:C:\Temp\H2\test.mv;MV_STORE=true;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
-    url: jdbc:h2:mem:inm;MV_STORE=true;DB_CLOSE_DELAY=-1;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+    url: jdbc:h2:C:\Temp\H2\test.mv;MV_STORE=true;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+    //url: jdbc:h2:mem:inm;MV_STORE=true;DB_CLOSE_DELAY=-1;CASE_INSENSITIVE_IDENTIFIERS=TRUE
     username: username
     password: password
     hikari:
@@ -14,6 +14,13 @@ spring:
       idle-timeout: 2000
       max-lifetime: 10000
       leak-detection-threshold: 2000
+    initialization-mode: always
+    platform: h2
+
 
 file_path:
   "C://Temp/"
+
+rest.auth.enabled: true
+rest.auth.secret: 254a226d32314b881d011ffffe21f8a1a82a0a64e60689cc0e9f175e70244d16
+spring.autoconfigure.exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
