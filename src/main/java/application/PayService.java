@@ -3,6 +3,8 @@ package application;
 import org.json.simple.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementSetter;
 import org.springframework.stereotype.Component;
@@ -16,7 +18,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
-import java.util.UUID;
+import java.util.*;
 
 @Component
 public class PayService {
@@ -30,6 +32,10 @@ public class PayService {
     private static final String INSERT_INTO_PWB_PAYMENT_SMAL ="INSERT INTO dbo.pwb_payment ("+
             "RequestId,INDATETIME,DOCUMENTNUMBER,\"date\",AMOUNT) "+
             "VALUES (?, ?, ?, ?, ?)" ;
+
+    private static final String INSERT_INTO_WB_PAYMENTSTATE ="INSERT INTO dbo.wb_paymentstate ("+
+            "RequestId,INDATETIME,BATCHID,PAYMENTID) "+
+            "VALUES (?, ?, ?, ?)" ;
 
     @Value("${file_path}")
     private String file_path;
@@ -94,19 +100,132 @@ public class PayService {
         });
     }
 
-    public void newPaysToBase(Recipient[] recipients, PayBatch payBatch, Payer payer) {
-        String uuid = payBatch.getBatchId();
-        String senderAccount = payer.getSenderAccount();
-        for(Recipient recipient: recipients){
-            newsaveToDB(recipient, uuid, senderAccount);
-        }
+    public void newPaysToBase(Map<String, Object> filterMap) {
+        String uuid = (filterMap).get("batchId").toString();
+        Map from = (Map) (filterMap).get("from");
+
+        String senderAccount = from.get("senderAccount").toString();
+
+
+          List <Map<String,String>> toObject = (List<Map<String,String>>) filterMap.get("to");
+
+          List<Recipient> recipients = new ArrayList<>();
+          Iterator<Map<String, String>> toObjectLine = toObject.iterator();
+
+        while (toObjectLine.hasNext()) {
+        Map<String, String> to = toObjectLine.next();
+        Recipient recipient = new Recipient();
+        recipient.setPaymentId(to.get("paymentId"));
+        recipient.setDocAmount(String.valueOf(to.get("docAmount")));
+        recipient.setDocNumber(to.get("docNumber"));
+        recipient.setRecipientBankName(to.get("recipientBankName"));
+        recipient.setRecipientKpp(to.get("recipientKpp"));
+        recipient.setRecipientBankBik(to.get("recipientBankBik"));
+        recipient.setRecipientCorrespondentAccount(to.get("recipientCorrespondentAccount"));
+        recipient.setRecipientName(to.get("recipientName"));
+        recipient.setRecipientAccount(to.get("recipientAccount"));
+        recipient.setRecipientInn(to.get("recipientInn"));
+        recipient.setPaymentDescription(to.get("paymentDescription"));
+        recipient.setExecutionOrder(String.valueOf(to.get("executionOrder")));
+        recipients.add(recipient);
+    }
+        for(Recipient onerecipient: recipients){
+        newsaveToDB(onerecipient, uuid, senderAccount);}
         jdbcTemplate.update("exec dbo.WB_PaymentRequest @pRequestID = ?, @ReqName = ?", new PreparedStatementSetter() {
-            @Override
-            public void setValues(PreparedStatement ps) throws SQLException {
-                ps.setString(1, uuid);
-                ps.setString(2, "WB_pay");
+        @Override
+        public void setValues(PreparedStatement ps) throws SQLException {
+            ps.setString(1, uuid);
+            ps.setString(2, "WB_pay");
+        }
+    });
+    }
+
+    public ResponseEntity<Object> paymentStatus(Map<String, Object> filterMap) {
+        ResponseEntity<Object> responseEntity;
+        String batchId = (filterMap).get("batchId").toString();
+        ArrayList paymentIDs = (ArrayList) filterMap.get("paymentIds");
+        String uuid = UUID.randomUUID().toString();
+        System.out.println("ID="+"["+batchId+paymentIDs+"]") ;
+
+        List<State> states = new ArrayList<>();
+        Iterator paymentid = paymentIDs.iterator();
+        Timestamp timestamp = Timestamp.valueOf(LocalDateTime.now());
+
+        while (paymentid.hasNext()) {
+            State state = new State();
+            state.setPaymentId((String) paymentid.next());
+            state.setBatchId(batchId);
+            state.setRequestId(uuid);
+            state.setInDateTime(timestamp);
+            states.add(state);
+        }
+        for(State state: states) {
+            saveState(state, batchId);
+        }
+        List resultList = new ArrayList();
+        try {
+
+            PreparedStatementSetter preparedStatement = new PreparedStatementSetter() {
+                @ Override
+                public void setValues(PreparedStatement ps)throws SQLException {
+
+                    ps.setString(1, uuid.toString());
+                    //ps.setObject(2, paymentIDs.toArray());
+
+                }
+            };
+            System.out.println("ID="+"["+uuid+paymentIDs+"]") ;
+            List < Map < String, Object >> queryList = jdbcTemplate.queryForList("select p.RequestID as RequestID" +
+                    "      ,p.PaymentID as PaymentID" +
+                    "      ,p.documentNumber as documentNumber" +
+                    "      ,dt.Qty as Qty" +
+                    "      ,dt.Confirmed as Confirmed" +
+                    "      ,dt.DealTransactID as DealTransactID" +
+                    "      ,case when Confirmed = 101 then 'Загружен'" +
+                    "            when Confirmed = 1   then 'Исполнен'" +
+                    "       else 'Обрабатывается'" +
+                    "       end PayStatus  " +
+                    "  ,isnull(p.Error,'') as Error " +
+                    //   ",'('+char(39)+replace(replace(replace(?,'[',''),']',''),', ',char(39)+','+char(39))+char(39)+')' as Confirmed" +
+                    //  ",? as PaymentID" +
+                    " from  WB_PaymentState s" +
+                    " inner join WB_Payment p on p.PaymentID = s.PaymentID" +
+                    " left join tDealTransact dt on dt.DealTransactID = p.DealTransactID" +
+                    " where s.RequestId = ?",uuid.toString());
+            // " where p.RequestId = ? and p.PaymentID in (select char(39)+replace(replace(replace(?,'[',''),']',''),', ',char(39)+','+char(39))+char(39))", uuid.toString(),String.valueOf(paymentIDs));
+            //" where p.RequestId = ? and p.PaymentID in ('18d32b6d-7c78-40f3-a87a-574f238db8e7')", uuid.toString(),String.valueOf(paymentIDs));
+            //and p.PaymentID in (select '('+char(39)+replace(replace(replace('?','[',''),']',''),', ',char(39)+','+char(39))+char(39)+')')
+            // List resultList = new ArrayList();
+            System.out.println("query-list="+"["+queryList+"]") ;
+            for (Map row: queryList) {
+                System.out.println("row="+"["+row+"]") ;
+                PayOrdState ordState = new PayOrdState();
+                ordState.setRequestID((String)row.get("RequestID"));
+                ordState.setPaymentID((String)row.get("PaymentID"));
+                ordState.setDocumentNumber((String)row.get("documentNumber").toString());
+                ordState.setAmount((BigDecimal)row.get("Qty"));
+                ordState.setConfirmed((String)row.get("Confirmed").toString());
+                ordState.setDealTransactID((BigDecimal)row.get("DealTransactID"));
+                ordState.setPayStatus((String)row.get("PayStatus"));
+                ordState.setError(new PayError((Integer) row.get("errorID"), (String)row.get("message")));
+                resultList.add(ordState);
             }
-        });
+        } catch (Exception e) {
+            responseEntity = new ResponseEntity<>(e,HttpStatus.METHOD_FAILURE);
+        }
+
+        /*{ "paymentsStatusesList":[
+                {"paymentId": "18d32b6d-7c78-40f3-a87a-574f238db8e7", "status": "success", "error":null},
+                {"paymentId": "29a32b6d-7c78-40f3-a87a-231f238db8zu", "status": "error", "error":
+                    {"errorId": 1, "message":"не найден контрагент с указаными реквизитами"}}
+            ] }
+*/
+        JSONObject paymentsStatuses = new JSONObject();
+        paymentsStatuses.put("paymentsStatuses",resultList);
+
+        responseEntity = new ResponseEntity<>(paymentsStatuses,HttpStatus.OK);
+
+        return responseEntity;
     }
 
     private void saveToDB(PayOrder payOrder, String uuid) {
@@ -148,26 +267,26 @@ public class PayService {
         }
     }
 
-    private void newsaveToDB(Recipient recipient, String uuid, String senderAccount) {
+    void newsaveToDB(Recipient onerecipient, String uuid, String senderAccount) {
         try {
             jdbcTemplate.update(INSERT_INTO_PWB_PAYMENT, new PreparedStatementSetter() {
                 @Override
                 public void setValues(PreparedStatement ps) throws SQLException {
                     ps.setString(1, uuid); /*ps.setBigDecimal(2, new BigDecimal(UUID.randomUUID().toString()));*/
                     ps.setTimestamp (2, Timestamp.valueOf(LocalDateTime.now())); /*getTimeStamp(payOrder.getDate())); */
-                    ps.setString(3,recipient.getPaymentId());
+                    ps.setString(3,onerecipient.getPaymentId());
                     ps.setString(4,senderAccount);
-                    ps.setString(5, recipient.getDocNumber());
+                    ps.setString(5, onerecipient.getDocNumber());
                     ps.setString(6, Timestamp.valueOf(LocalDateTime.now()).toString());
-                    ps.setBigDecimal(7, new BigDecimal(recipient.getDocAmount()));
-                    ps.setString(8,recipient.getRecipientName());
-                    ps.setString(9,recipient.getRecipientInn());
-                    ps.setString(10,recipient.getRecipientKpp());
-                    ps.setString(11,recipient.getRecipientCorrespondentAccount());
-                    ps.setString(12,recipient.getRecipientBankBik());
-                    ps.setString(13,recipient.getRecipientAccount());
-                    ps.setString(14,recipient.getPaymentDescription());
-                    ps.setString(15,recipient.getExecutionOrder());
+                    ps.setBigDecimal(7, new BigDecimal(onerecipient.getDocAmount()));
+                    ps.setString(8,onerecipient.getRecipientName());
+                    ps.setString(9,onerecipient.getRecipientInn());
+                    ps.setString(10,onerecipient.getRecipientKpp());
+                    ps.setString(11,onerecipient.getRecipientCorrespondentAccount());
+                    ps.setString(12,onerecipient.getRecipientBankBik());
+                    ps.setString(13,onerecipient.getRecipientAccount());
+                    ps.setString(14,onerecipient.getPaymentDescription());
+                    ps.setString(15,onerecipient.getExecutionOrder());
                     ps.setString(16,"");
                     ps.setString(17,"");
                     ps.setString(18,"");
@@ -178,7 +297,24 @@ public class PayService {
                     ps.setString(23,"");
                     ps.setString(24,"");
                     ps.setString(25,"");
-                    ps.setString(26,recipient.getRecipientCorrespondentAccount());
+                    ps.setString(26,onerecipient.getRecipientCorrespondentAccount());
+                }
+            });
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    void saveState(State state, String batchId) {
+        try {
+            jdbcTemplate.update(INSERT_INTO_WB_PAYMENTSTATE, new PreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps) throws SQLException {
+                    ps.setString(1, state.getRequestId());
+                    ps.setTimestamp (2,state.getInDateTime());
+                    ps.setString(3,state.getBatchId());
+                    ps.setString(4,state.getPaymentId());
                 }
             });
 
@@ -207,4 +343,5 @@ public class PayService {
             }
         });
     }
+
 }

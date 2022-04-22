@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -39,27 +40,27 @@ public class AuthorizationFilter extends OncePerRequestFilter {
         }
         else{
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-
+        ContentCachingRequestWrapper cachingRequestWrapper = new ContentCachingRequestWrapper(request);
         if (authHeader == null || authHeader.isEmpty()){
             logger.info(HttpServletResponse.SC_UNAUTHORIZED);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         }
-        else if (!checkAuthorization(authHeader,request)){
+        else if (!checkAuthorization(authHeader,cachingRequestWrapper)){
             logger.info(HttpServletResponse.SC_FORBIDDEN);
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         }
         else
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(cachingRequestWrapper, response);
         }
     }
 
-    private boolean checkAuthorization(String auth, HttpServletRequest request) throws IOException {
+    private boolean checkAuthorization(String auth, ContentCachingRequestWrapper cachingRequestWrapper) throws IOException {
         if (!auth.startsWith("Bearer "))
             return false;
-
         String token = auth.substring(7);
         /*ContentCachingRequestWrapper cachingRequestWrapper = new ContentCachingRequestWrapper(request);*/
-        String body = "hmac:#" + request.hashCode();/*cachingRequestWrapper.getReader().lines().collect(Collectors.joining(System.lineSeparator()));*/
+        //String body = "hmac:#" + request.hashCode();
+        String body = cachingRequestWrapper.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
         /*RequestWrapper requestWrapper = new RequestWrapper(request);
         String body = requestWrapper.getBody();*/
         return tokenService.validateToken(token,body);

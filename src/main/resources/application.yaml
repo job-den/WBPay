@@ -21,6 +21,6 @@ spring:
 file_path:
   "C://Temp/"
 
-rest.auth.enabled: true
+rest.auth.enabled: false
 rest.auth.secret: 254a226d32314b881d011ffffe21f8a1a82a0a64e60689cc0e9f175e70244d16
 spring.autoconfigure.exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration

@@ -1,5 +1,6 @@
 package application;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -7,7 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementSetter;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.ContentCachingRequestWrapper;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -44,7 +47,9 @@ public class PayController {
         return new ResponseEntity<>(HttpStatus.CREATED);
     }
     @PostMapping(value = "/newPaysToBase",produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> newPaysToBase(@RequestBody Map<String, Object> filterMap) {
+    public ResponseEntity<?> newPaysToBase(ContentCachingRequestWrapper cachingRequestWrapper) throws IOException {
+        Map<String, Object> filterMap = new ObjectMapper().readValue(new String(cachingRequestWrapper.getContentAsByteArray()), Map.class);
+
         String batchId = (filterMap).get("batchId").toString();
         Map from = (Map) (filterMap).get("from");
 
@@ -84,8 +89,8 @@ public class PayController {
         return "pay OK";
     }
 
-    @RequestMapping(value ="/payState",produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity payState(@RequestParam(name="id") String requestID) throws Exception {
+    @RequestMapping(value = "/payState", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity payState(@RequestParam(name = "id") String requestID) throws Exception {
         List resultList = new ArrayList();
         try {
 
@@ -95,7 +100,7 @@ public class PayController {
                     ps.setString(0, requestID);
                 }
             };
-           // System.out.println("ID="+"["+requestID+"]") ;
+            // System.out.println("ID="+"["+requestID+"]") ;
             List<Map<String, Object>> queryList = jdbcTemplate.queryForList("select p.RequestID as RequestID" +
                     "      ,p.documentNumber as documentNumber" +
                     "      ,dt.Qty as Qty" +
@@ -110,7 +115,7 @@ public class PayController {
                     " left join tDealTransact dt on dt.DealTransactID = p.DealTransactID" +
                     " where p.RequestId = ?", requestID.toString());  //4eeb8b89-8fa2-4b85-b50a-2adc0736beed
 
-           // List resultList = new ArrayList();
+            // List resultList = new ArrayList();
             for (Map row : queryList) {
 
                 PayOrdState ordState = new PayOrdState();
@@ -120,25 +125,25 @@ public class PayController {
                 ordState.setConfirmed((String) row.get("Confirmed").toString());
                 ordState.setDealTransactID((BigDecimal) row.get("DealTransactID"));
                 ordState.setPayStatus((String) row.get("PayStatus"));
-                ordState.setError((String) row.get("Error"));
-
+                /*ordState.setError( (String) row.get("Error"));*/
+                ordState.setError(new PayError((Integer) row.get("1"), (String)row.get("message")));
                 resultList.add(ordState);
-        }
+            }
 
         } catch (Exception e) {
-             throw e;
-          //  ResponseEntity<Object> responseEntity = new ResponseEntity<>(resultList,HttpStatus.METHOD_FAILURE);
-          //  return  responseEntity;
+            throw e;
+            //  ResponseEntity<Object> responseEntity = new ResponseEntity<>(resultList,HttpStatus.METHOD_FAILURE);
+            //  return  responseEntity;
         }
 
-        ResponseEntity<Object> responseEntity = new ResponseEntity<>(resultList,HttpStatus.OK);
-        return  responseEntity;
+        ResponseEntity<Object> responseEntity = new ResponseEntity<>(resultList, HttpStatus.OK);
+        return responseEntity;
     }
 
 
-    @RequestMapping(value ="/PayStateTest",produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity payStateTest(@RequestParam(name="id") String requestID) throws Exception {
-           List<Object> resultList = new ArrayList();
+    @RequestMapping(value = "/PayStateTest", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity payStateTest(@RequestParam(name = "id") String requestID) throws Exception {
+        List<Object> resultList = new ArrayList();
         try {
 
             PreparedStatementSetter preparedStatement = new PreparedStatementSetter() {
@@ -166,29 +171,10 @@ public class PayController {
             throw e;
 
         }
-        ResponseEntity<Object> responseEntity = new ResponseEntity<>(resultList,HttpStatus.OK);
-        return  responseEntity;
+        ResponseEntity<Object> responseEntity = new ResponseEntity<>(resultList, HttpStatus.OK);
+        return responseEntity;
     }
-        public List<Object> extractData (ResultSet resultSet) throws SQLException {
 
-            List<Object> resultList = null;
-            while (resultSet.next()) {
-                resultList = new ArrayList<Object>();
-
-                resultList.add(resultSet.getObject("RequestID"));
-                resultList.add(resultSet.getObject("documentNumber"));
-                resultList.add(resultSet.getObject("Qty"));
-                resultList.add(resultSet.getObject("Confirmed"));
-                resultList.add(resultSet.getObject("DealTransactID"));
-                resultList.add(resultSet.getObject("PayStatus"));
-                resultList.add(resultSet.getObject("Error"));
-            }
-
-            return resultList;
-
-        }
-
-/*
     public List<Object> extractData(ResultSet resultSet) throws SQLException {
 
         List<Object> resultList = null;
@@ -205,5 +191,19 @@ public class PayController {
         }
 
         return resultList;
-*/
+
+    }
+
+ /*
+  @PostMapping(value = "/newPaysToBase",produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> newPaysToBase(@RequestBody Map<String, Object> filterMap) {
+        service.newPaysToBase(filterMap);
+
+  */
+
+    @PostMapping(value = "/payment-status", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> paymentStatus(@RequestBody Map<String, Object> filterMap) {
+        return service.paymentStatus(filterMap);
+    }
+
 }

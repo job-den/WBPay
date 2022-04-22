@@ -29,10 +29,9 @@ public class SecureController {
         String body = null;
         String generateToken = null;
         try {
-            /* RequestWrapper requestWrapper = new RequestWrapper(request);
-            body = requestWrapper.getBody();*/
-            //body = request.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
-            generateToken = tokenService.generateToken("hmac:#" + request.hashCode());
+            ContentCachingRequestWrapper cachingRequestWrapper = new ContentCachingRequestWrapper(request);
+            body = cachingRequestWrapper.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
+            generateToken = tokenService.generateToken(body);
         } catch (Exception e) {
             new ResponseEntity<>(e,HttpStatus.BAD_REQUEST);
         }
